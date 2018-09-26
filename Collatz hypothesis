@@ -1,0 +1,15 @@
+number = 10 ** 100 + 1
+print('Number is ', str(number), '\n')
+steps = 0
+while True:
+    if number == 1:
+        break
+    if number % 2 == 0:
+        number = number // 2
+        print(number) if number != 1 else print(number, '\n')
+        steps += 1
+    else:
+        number = (number * 3) + 1
+        print(number)
+        steps += 1
+print('Steps = ', steps)
