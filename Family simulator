@@ -1,0 +1,401 @@
+# -*- coding: utf-8 -*-
+
+#
+# Создать модель жизни небольшой семьи.
+#
+# Каждый день участники жизни могут делать только одно действие.
+# Все вместе они должны прожить год и не умереть.
+#
+# Муж может:
+#   есть,
+#   играть в WoT,
+#   ходить на работу,
+# Жена может:
+#   есть,
+#   покупать продукты,
+#   покупать шубу,
+#   убираться в доме,
+
+# Все они живут в одном доме, дом характеризуется:
+#   кол-во денег в тумбочке (в начале - 100)
+#   кол-во еды в холодильнике (в начале - 50)
+#   кол-во грязи (в начале - 0)
+#
+# У людей есть имя, степень сытости (в начале - 30) и степень счастья (в начале - 100).
+#
+# Любое действие, кроме "есть", приводит к уменьшению степени сытости на 10 пунктов
+# Кушают взрослые максимум по 30 единиц еды, степень сытости растет на 1 пункт за 1 пункт еды.
+# Степень сытости не должна падать ниже 0, иначе чел умрет от голода.
+#
+# Деньги в тумбочку добавляет муж, после работы - 150 единиц за раз.
+# Еда стоит 10 денег 10 единиц еды. Шуба стоит 350 единиц.
+#
+# Грязь добавляется каждый день по 5 пунктов, за одну уборку жена может убирать до 100 единиц грязи.
+# Если в доме грязи больше 90 - у людей падает степень счастья каждый день на 10 пунктов,
+# Степень счастья растет: у мужа от игры в WoT (на 20), у жены от покупки шубы (на 60, но шуба дорогая)
+# Степень счастья не должна падать ниже 10, иначе чел умрает от депресии.
+#
+# Подвести итоги жизни за год: сколько было заработано денег, сколько сьедено еды, сколько куплено шуб.
+#
+# Кот может:
+#   есть,
+#   спать,
+#   драть обои
+#
+# Люди могут:
+#   гладить кота (растет степень счастья на 5 пунктов)
+#
+# В доме добавляется:
+#   еда для кота (в начале - 30)
+#
+# У кота есть имя и степень сытости (в начале - 30)
+# Любое действие кота, кроме "есть", приводит к уменьшению степени сытости на 10 пунктов
+# Еда для кота покупается за деньги: за 10 денег 10 еды.
+# Кушает кот максимум по 10 единиц еды, степень сытости растет на 2 пункта за 1 пункт еды.
+# Степень сытости не должна падать ниже 0, иначе кот умрет от голода.
+#
+# Если кот дерет обои, то грязи становится больше на 5 пунктов
+#
+# Ребенок может:
+#   есть,
+#   спать,
+#
+# отличия от взрослых - кушает максимум 10 единиц еды,
+# степень счастья  - не меняется, всегда ==100 ;)
+
+
+
+from termcolor import cprint
+from random import randint, choice
+
+
+class House:
+
+    def __init__(self):
+        self.money = 100
+        self.food = 50
+        self.cat_food = 30
+        self.dirt = 0
+        self.total_adults = 0
+        self.total_children = 0
+        self.total_cats = 0
+        self.citizens = list()
+
+    def __str__(self):
+        return 'Дом: еды осталось {}, кошачьей еды {}, денег осталось {}, грязи в доме {} единиц'.format(
+            self.food, self.cat_food, self.money, self.dirt)
+
+    def add_citizen(self, citizen):
+        # Здесь не знаю как избежать глобальной переменной, я меняю в коде
+        # метода её параметр house
+        #
+        # А что ты называешь глобальной переменной? citizen - это параметр функции и это нормально
+        citizen.house = self
+        self.citizens.append(citizen)
+        # тут проверки на класс - норм. Получаешь параметр, определяешь его тип и выбираешь действие - ок.
+        if isinstance(citizen, Cat):
+            self.total_cats += 1
+            return
+
+        if isinstance(citizen, Child):
+            self.total_children += 1
+            return
+
+        self.total_adults += 1
+        return
+
+    def add_dirt(self):
+        self.dirt += 5
+
+
+class Creature:
+    def __init__(self, name):
+        self.name = name
+        self.house = None
+        self.fullness = None
+        self.happiness = None
+
+    def __str__(self):
+        return '{}: сытость {}, счастье {}.'.format(self.name, self.fullness, self.happiness)
+
+    def check_for_death(self):
+        if self.fullness <= 0 or self.happiness < 10:
+            cprint('{} умер(ла)... '.format(self.name), color='red')
+            return True
+
+        return False
+
+
+class Man(Creature):
+    total_eaten = 0
+
+    def __init__(self, name):
+        super().__init__(name=name)
+        self.fullness = 30
+        self.happiness = 100
+
+    def eat(self):
+        if self.house.food >= 30:
+            self.fullness += 30
+            self.house.food -= 30
+            Man.total_eaten += 30
+            cprint('{} поел(а)'.format(self.name), color='yellow')
+        else:
+            cprint('{}, нет еды'.format(self.name), color='red')
+            self.fullness -= 3
+            if isinstance(self, Wife):
+                self.shopping()
+
+    def touch_cat(self):
+        self.happiness += 5
+        self.fullness -= 10
+        cprint('{} гладил(а) кота'.format(self.name), color='cyan')
+
+    def act(self):
+        if super().check_for_death():
+            self.house.total_adults -= 1
+            self.house.citizens.remove(self)
+            return True
+
+        if self.house.dirt >= 90:
+            self.happiness -= 10
+
+        dice = randint(1, 5)
+
+        if self.fullness <= 10 or dice == 1:
+            self.eat()
+            return True
+
+
+class Husband(Man):
+    total_earned = 0
+
+    def work(self):
+        self.house.money += 150
+        self.fullness -= 10
+        Husband.total_earned += 150
+        cprint('{} сходил на работу'.format(self.name), color='blue')
+
+    def gaming(self):
+        self.happiness += 20
+        self.fullness -= 10
+        cprint('{} играл в WoT целый день'.format(self.name), color='green')
+
+    def act(self):
+        if super().act():
+            return
+
+        dice = randint(1, 5)
+
+        if self.house.money <= 200 or dice == (2 or 3):
+            self.work()
+        elif dice == 4 and self.house.total_cats > 0:
+            self.touch_cat()  # наследники напрямую наследуют методы базового класса
+        else:
+            self.gaming()
+
+
+class Wife(Man):
+    total_fur_coat = 0
+
+    def shopping(self):
+        money_for_food = 30 * self.house.total_adults + 10 * self.house.total_children
+        if self.house.money >= money_for_food:
+            self.house.food += money_for_food
+            self.fullness -= 10
+            self.house.money -= money_for_food
+            cprint('{} купила в дом еды.'.format(self.name), color='magenta')
+        else:
+            cprint('{}, деньги кончились!'.format(self.name), color='red')
+
+    def buy_cat_food(self):
+        if self.house.total_cats > 0 and self.house.money >= 10 * self.house.total_cats:
+            self.house.cat_food += 20 * self.house.total_cats
+            self.fullness -= 10
+            self.house.money -= 10 * self.house.total_cats
+            cprint('{} купила кошачьей еды'.format(self.name), color='magenta')
+        else:
+            cprint('{}, деньги кончились!'.format(self.name), color='red')
+
+    def buy_fur_coat(self):
+        required_for_food = (
+                30 * self.house.total_adults
+                + 10 * self.house.total_children
+                + 10 * self.house.total_cats
+        )
+        if self.house.money >= 350 + required_for_food:
+            self.house.money -= 350  # это цена шубы, денег в доме станет меньше на 350 единиц после покупки шубы
+            self.happiness += 60
+            self.fullness -= 10
+            Wife.total_fur_coat += 1
+            cprint('{} купила себе шубу'.format(self.name), color='cyan')
+        else:
+            self.watch_tv()
+
+    def clean_house(self):
+        self.house.dirt -= 100
+        self.fullness -= 10
+        cprint('{} убралась в доме'.format(self.name), color='blue')
+
+    def watch_tv(self):
+        emotions = randint(-10, 10)
+        self.happiness += emotions
+        self.fullness -= 10
+        if emotions <= 0:
+            cprint('{} смотрела сериал, расстроилась.'.format(self.name), color='cyan')
+        else:
+            cprint('{} смотрела сериал, обрадовалась.'.format(self.name), color='cyan')
+
+    def fitness(self):
+        self.happiness += 20
+        self.fullness -= 10
+        cprint('{} прыгала на фитнесе.'.format(self.name), color='yellow')
+
+    def act(self):
+        if super().act():
+            return
+
+        dice = randint(1, 4)
+
+        required_for_food = 30 * self.house.total_adults + 10 * self.house.total_children
+
+        if self.house.food <= required_for_food:
+            self.shopping()
+        elif self.house.total_cats and self.house.cat_food <= (10 * self.house.total_cats):
+            self.buy_cat_food()
+        elif self.house.dirt >= 100:
+            self.clean_house()
+        elif self.happiness <= 40 or dice == 1:
+            self.buy_fur_coat()
+        elif dice == 2:
+            self.watch_tv()
+        elif dice == 3 and self.house.total_cats > 0:
+            self.touch_cat()
+        else:
+            self.fitness()
+
+
+class Child(Creature):
+
+    def __init__(self, name):
+        super().__init__(name=name)
+        self.fullness = 30
+        self.happiness = 100
+
+    def eat(self):
+        if self.house.food >= 10:
+            self.fullness += 10
+            self.house.food -= 10
+            Man.total_eaten += 10
+            cprint('{} поел(а)'.format(self.name), color='yellow')
+        else:
+            cprint('{}, нет еды'.format(self.name), color='red')
+            self.fullness -= 3
+
+    def sleep(self):
+        self.fullness -= 10
+        cprint('{} поспал(а).'.format(self.name), color='cyan')
+
+    def act(self):
+        if super().check_for_death():
+            self.house.total_children -= 1
+            self.house.citizens.remove(self)
+            return
+
+        elif self.fullness <= 10:
+            self.eat()
+
+        else:
+            self.sleep()
+
+
+class Cat(Creature):
+    total_spoiled = 0
+    total_eaten = 0
+
+    def __init__(self, name):
+        super().__init__(name=name)
+        self.fullness = 30
+        self.happiness = 100
+
+    def __str__(self):
+        return '{}:, сытость {}.'.format(self.name, self.fullness)
+
+    def eat(self):
+        if self.house.cat_food >= 10:
+            self.fullness += 20
+            self.house.cat_food -= 10
+            Cat.total_eaten += 10
+            cprint('{} поел(а)'.format(self.name), color='yellow')
+        else:
+            cprint('{}, нет еды'.format(self.name), color='red')
+            self.fullness -= 3
+
+    def sleep(self):
+        self.fullness -= 10
+        cprint('{} поспал(а).'.format(self.name), color='cyan')
+
+    def spoil(self):
+        self.fullness -= 10
+        self.house.dirt += 5
+        Cat.total_spoiled += 1
+        cprint('{} драл(а) обои в доме.'.format(self.name), color='green')
+
+    def act(self):
+        if self.check_for_death():
+            self.house.total_cats -= 1
+            self.house.citizens.remove(self)
+            return
+        dice = randint(1, 4)
+
+        if self.fullness <= 10:
+            self.eat()
+        elif dice == 1:
+            self.spoil()
+        else:
+            self.sleep()
+
+
+home = House()
+serge = Husband(name='Сергей')
+masha = Wife(name='Мария')
+home.add_citizen(serge)
+home.add_citizen(masha)
+
+kids_names = ['Настя', "Вася", "Оля", "Петя", "Таня", "Вадик", "Юля", "Илья", "Никита", "Алина"]
+cats_names = ["Барсик", "Мурка", "Мурзик", "Батон", "Тёмка", "Ластус", "Мусик", "Муська", "Васька", "Лапка"]
+
+total_children = int(input('Введите желаемое количество детей у семьи (Максимум 10):  '))
+
+for i in range(total_children):
+    child = Child(name=choice(kids_names))
+    home.add_citizen(child)
+
+total_cats = int(input("Введите желаемое число котов в семье (Максимум 10):  "))
+
+for i in range(total_cats):
+    cat = Cat(name=choice(cats_names))
+    home.add_citizen(cat)
+
+for day in range(1, 366):
+    cprint('================== День {} =================='.format(day), color='red')
+    for citizen in home.citizens:
+        citizen.act()
+    home.add_dirt()
+
+    for citizen in home.citizens:
+        cprint(citizen, color='grey')
+    cprint(home, color='blue')
+    # если все умерли - дальше мучать трупы негуманно
+    if not home.citizens:
+        break
+
+print("\nЗаработано денег за год: ", Husband.total_earned)
+print("Людьми съедено еды за год: ", Man.total_eaten)
+print("Котами съедено еды за год: ", Cat.total_eaten)
+print("Куплено шуб за год: ", Wife.total_fur_coat)
+print("Обои подраны за год: ", Cat.total_spoiled, ' раз(а)')
+print("В доме за год осталось взрослых: ", home.total_adults)
+print("В доме за год осталось детей: ", home.total_children)
+print("В доме за год осталось котов: ", home.total_cats)
+
