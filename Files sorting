@@ -1,0 +1,112 @@
+# -*- coding: utf-8 -*-
+
+# Нужно написать скрипт для упорядочивания фотографий (вообще любых файлов)
+# Скрипт должен разложить файлы из одной папки по годам и месяцам в другую.
+# Например, так:
+#   исходная папка
+#       icons/cat.jpg
+#       icons/man.jpg
+#       icons/new_year_01.jpg
+#   результирующая папка
+#       icons_by_year/2018/05/cat.jpg
+#       icons_by_year/2018/05/man.jpg
+#       icons_by_year/2017/12/new_year_01.jpg
+#
+# Входные параметры основной функции: папка для сканирования, целевая папка.
+# Имена файлов в процессе работы скрипта не менять, год и месяц взять из времени создания файла.
+# Обработчик файлов делать в обьектном стиле - на классах.
+#
+# Файлы для работы взять из архива icons.zip - раззиповать проводником в папку icons перед написанием кода.
+# Имя целевой папки - icons_by_year (тогда она не попадет в коммит)
+#
+# Пригодятся функции:
+#   os.walk
+#   os.path.dirname
+#   os.path.join
+#   os.path.normpath
+#   os.path.getmtime
+#   time.gmtime
+#   os.makedirs
+#   shutil.copy2
+#
+
+import os, time, shutil, zipfile
+
+
+class Sorter:
+
+    def __init__(self, path_to_folder, path_for_sorted, zip_file_name):
+        self.path_to_folder = path_to_folder
+        self.path_for_sorted = path_for_sorted
+        self.folders_list = list()
+        self.zip_file_name = zip_file_name
+
+    def year(self, file_path):
+        file_changed_time = time.strftime("%Y-%m-%d-%H.%M.%S", time.gmtime(os.path.getmtime(file_path)))
+        year = file_changed_time[0:4]
+        return year
+
+    def list_of_folders_for_sorted(self, path):
+        folders_for_sorted = os.listdir(path=path)
+        return folders_for_sorted
+
+    def copy_file_to(self, file_path, path_for_sorted, name_of_folder):
+        shutil.copy2(file_path, os.path.join(path_for_sorted, name_of_folder))
+
+    def make_directory(self, path_for_sorted, name_of_folder):
+        os.mkdir(os.path.join(path_for_sorted, name_of_folder))
+
+    def sort(self):
+
+        for address, dirs, files in os.walk(self.path_to_folder):
+            for file in files:
+                file_path = os.path.normpath(os.path.join(address, file))
+                year = self.year(file_path)
+                folders_for_sorted = self.list_of_folders_for_sorted(path_for_sorted)
+
+                if year not in folders_for_sorted:
+                    self.make_directory(self.path_for_sorted, year)
+
+                self.copy_file_to(file_path, self.path_for_sorted, year)
+
+    def run(self):
+        self.sort()
+
+
+class ArchiveSorter(Sorter):
+
+    def year(self, zip_info):
+        year = str(zip_info.date_time[0])
+        return year
+
+    def extract_from_zip(self, zipped_file):
+        zipped_file.extract(self.zip_info, os.path.join(self.path_for_sorted, self.year(self.zip_info)))
+
+    def run(self):
+        with zipfile.ZipFile(self.zip_file_name, 'r') as zipped_file:
+            for info in zipped_file.infolist():
+                if info.filename[-1] == '/':
+                    continue
+                self.zip_info = info
+                info.filename = os.path.basename(info.filename)
+                year = self.year(self.zip_info)
+
+                if year not in self.list_of_folders_for_sorted(path_for_sorted):
+                    self.make_directory(self.path_for_sorted, year)
+
+                self.extract_from_zip(zipped_file)
+
+
+if __name__ == '__main__':
+    path_to_folder = os.path.join('icons')
+    path_for_sorted = os.path.join('icons_by_year')
+    zip_file_name = os.path.join('icons', 'icons.zip')
+
+    sort_by = int(input('Введите нужный тип разархивирования: 1 - Разобрать файлы из разархивированной папки, '
+                        '2 - Разобрать файлы без их предварительного извлечения из архива\n   '))
+
+    # но так прокатывает если только два варианта
+    sorter_class = Sorter if sort_by == 1 else ArchiveSorter
+    sorter = sorter_class(path_to_folder, path_for_sorted, zip_file_name)
+    sorter.run()
+
