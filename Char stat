@@ -1,0 +1,137 @@
+# -*- coding: utf-8 -*-
+
+# Подсчитать статистику по буквам в романе Война и Мир.
+# Входные параметры: файл для сканирования
+# Статистику считать только для букв алфавита (см функцию .isalpha() для строк)
+#
+# Вывести на консоль упорядоченную статистику в виде
+# +---------+----------+
+# |  буква  | частота  |
+# +---------+----------+
+# |    А    |   77777  |
+# |    Б    |   55555  |
+# |   ...   |   .....  |
+# |    a    |   33333  |
+# |    б    |   11111  |
+# |   ...   |   .....  |
+# +---------+----------+
+# |  итого  | 9999999  |
+# +---------+----------+
+# Ширину таблицы подберите по своему вкусу
+
+
+import zipfile
+import os
+
+
+class StatisticsCollector:
+
+    def __init__(self, filename):
+        self.statistics = dict()
+        self.frequencies = list()
+        self.filename = filename
+        self.extracted_path = None
+
+    def unzip(self):
+        archive = zipfile.ZipFile(self.filename, 'r')
+        extracted_file_name = os.path.basename(self.filename)[0:-4]
+        archive.extract(extracted_file_name)
+        archive.close()
+        extracted_path = os.path.abspath(extracted_file_name)
+        self.extracted_path = extracted_path
+
+    def analyze(self):
+        with open(self.extracted_path, mode='r', encoding='cp1251') as file:
+            for line in file:
+                for alpha in line:
+                    if not alpha.isalpha():
+                        continue
+                    elif alpha in self.statistics:
+                        self.statistics[alpha] += 1
+                    else:
+                        self.statistics[alpha] = 1
+
+    # появилась возможность наследоваться и переопределять разные части, в частности - получение сортированных данных
+
+    def get_sorted_data(self):
+        sorted_data = []
+        for letter in sorted(self.statistics):
+            sorted_data.append([letter, self.statistics[letter]])
+        return sorted_data
+
+    def output_in_table(self):
+        print('+---------+----------+')
+        print('|  Буква  |  Частота |')
+        print('+---------+----------+')
+        summ = 0
+        for letter, stat in self.get_sorted_data():
+            print('|{letter:^9}|{stat:^10}|'.format(letter=letter, stat=stat))
+            summ += stat
+        print('+---------+----------+')
+        print('|{text:^9}|{summ:^10}|'.format(text="Итого", summ=summ))
+        print('+---------+----------+')
+
+    def delete_extracted_file(self):
+        os.remove(self.extracted_path)
+
+    def run(self):
+        self.unzip()
+        self.analyze()
+        self.output_in_table()
+        self.delete_extracted_file()
+
+
+class StatisticsCollectorReversed(StatisticsCollector):
+    def get_sorted_data(self):
+        sorted_data = []
+        for letter in sorted(self.statistics, reverse=True):
+            sorted_data.append([letter, self.statistics[letter]])
+        return sorted_data
+
+
+class StatisticsCollectorByFrequencies(StatisticsCollector):
+
+    def _get_frequencies(self):
+        # пригодится в наследниках
+        frequencies = []
+        for letter, stat in self.statistics.items():
+            frequencies.append([stat, letter])
+        return frequencies
+
+    def get_sorted_data(self):
+        self.frequencies = self._get_frequencies()
+        sorted_data = []
+        for stat, letter in sorted(self.frequencies):
+            sorted_data.append([letter, stat])
+        return sorted_data
+
+
+class StatisticsCollectorByFrequenciesReversed(StatisticsCollectorByFrequencies):
+
+    def get_sorted_data(self):
+        self.frequencies = self._get_frequencies()
+        sorted_data = []
+        for stat, letter in sorted(self.frequencies, reverse=True):
+            sorted_data.append([letter, stat])
+        return sorted_data
+
+
+if __name__ == '__main__':
+    filename = os.path.abspath('voyna-i-mir.txt.zip')
+    sort_by = int(input('Введите нужный тип сортировки статистики: 1 - по возрастанию букв, '
+                        '2 - по убыванию букв, 3 - по возрастанию частоты букв, 4 - по убыванию частоты букв'
+                        '\n   '))
+
+    if sort_by == 1:
+        collector_class = StatisticsCollector
+    elif sort_by == 2:
+        collector_class = StatisticsCollectorReversed
+    elif sort_by == 3:
+        collector_class = StatisticsCollectorByFrequencies
+    else:
+        collector_class = StatisticsCollectorByFrequenciesReversed
+
+    collector = collector_class(filename)
+    collector.run()
+
+
