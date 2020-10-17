@@ -1,0 +1,94 @@
+# -*- coding: utf-8 -*-
+
+# Имеется файл events.txt вида:
+#
+# [2018-05-17 01:55:52.665804] NOK
+# [2018-05-17 01:56:23.665804] OK
+# [2018-05-17 01:56:55.665804] OK
+# [2018-05-17 01:57:16.665804] NOK
+# [2018-05-17 01:57:58.665804] OK
+# ...
+#
+# Напишите программу, которая считывает файл
+# и выводит число событий NOK за каждую минуту в другой файл в формате
+#
+# [2018-05-17 01:57] 1234
+# [2018-05-17 01:58] 4321
+# ...
+#
+# Входные параметры: файл для анализа, файл результата
+
+import os, time
+
+
+class LogParser:
+
+    def __init__(self, log_file, output_file):
+
+        self.log_file = log_file
+        self.statistics = dict()
+        self.output_file = output_file
+
+    def analyze(self):
+
+        file = open(self.log_file, mode='r', encoding='utf8')
+        for line in file:
+            if not line.endswith('NOK\n'):
+                continue
+            group_by = self.get_group_by_value(line)
+            if group_by in self.statistics:
+                self.statistics[group_by] += 1
+            else:
+                self.statistics[group_by] = 1
+
+        file.close()
+
+    def get_group_by_value(self, line):
+        group_by = line[1:17]
+        return group_by
+
+    def output_results(self):
+        file = open(self.output_file, mode='w', encoding='cp1251')
+        file.write('\n')
+        file.write('{}  {}'.format('Data of grouping:', time.ctime()))
+        file.write('\n')
+        for item in self.statistics.items():
+            file.write('[{}]    {}'.format(item[0], str(item[1])))
+            file.write('\n')
+            print('[{}]    {}'.format(item[0], str(item[1])))
+        file.close()
+
+    def run(self):
+        self.analyze()
+        self.output_results()
+
+
+class LogParserByHours(LogParser):
+    def get_group_by_value(self, line):
+        group_by = line[1:14]
+        return group_by
+
+
+class LogParserByYears(LogParser):
+    def get_group_by_value(self, line):
+        group_by = line[1:5]
+        return group_by
+
+
+if __name__ == '__main__':
+    log_file = os.path.abspath('events.txt')
+    output_file = os.path.abspath('events_stat.txt')
+
+    parse_by = int(input('Введите нужный тип группировки лога: 1 - по минутам, '
+                         '2 - по часам, 3 - по году\n'))
+
+    if parse_by == 1:
+        parser_class = LogParser
+    elif parse_by == 2:
+        parser_class = LogParserByHours
+    else:
+        parser_class = LogParserByYears
+
+    parser = parser_class(log_file, output_file)
+    parser.run()
+
